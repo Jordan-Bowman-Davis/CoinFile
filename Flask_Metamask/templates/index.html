@@ -1,0 +1,189 @@
+<script src="https://cdn.jsdelivr.net/npm/web3@1.5.3/dist/web3.min.js"></script>
+<html>
+  <head>
+    <title>Coin File</title>
+    <style>
+      body {
+        background-color: #bbd6ac;
+        color: #333;
+        font-family: Arial, sans-serif;
+      }
+      h1 {
+        font-size: 2.5rem;
+        margin-top: 2rem;
+        font-style: bold;
+      }
+      button {
+        background-color: #333;
+        border: none;
+        border-radius: 5px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 1rem 2rem;
+        margin-top: 1rem;
+      }
+      button:hover {
+        background-color: #444;
+      }
+      label {
+        font-size: 1.2rem;
+      }
+      input[type="text"] {
+        border-radius: 5px;
+        border: none;
+        padding: 0.5rem 1rem;
+        font-size: 1.2rem;
+      }
+      input[type="text"]:focus {
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <center>
+    <h1>Coin File</h1>
+    <p>Convert your transaction into a sharable .trns file!</p>
+    <button id='connectWallet' onclick="">Connect Wallet</button>
+    <button id='download' onclick="download()">Sign & Download Transaction</button>
+
+    <p>
+      <label for="toAddress">To Address:</label>
+      <input type="text" id="toAddress" name="toAddress">
+    </p>
+    
+    <p>
+      <label for="amount">Amount (ETH):</label>
+      <input type="number" id="amount" name="amount">
+    </p>
+
+    <script type="text/javascript">
+      window.userWalletAddress = null
+      const connectWallet = document.getElementById('connectWallet')
+      const walletAddress = document.getElementById('toAddress')
+      const walletBalance = document.getElementById('amount')
+
+      function checkInstalled() {
+        if (typeof window.ethereum == 'undefined') {
+          connectWallet.innerText = 'MetaMask is not installed, please install it'
+          connectWallet.classList.remove()
+          connectWallet.classList.add()
+          return false
+        }
+        connectWallet.addEventListener('click', connectWalletwithMetaMask)
+      }
+
+      async function connectWalletwithMetaMask() {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+        .catch((e) => {
+        console.error(e.message)
+        return
+        })
+
+        if (!accounts) { return }
+
+        window.userWalletAddress = accounts[0]
+        walletAddress.innerText = window.userWalletAddress
+
+        connectWallet.innerText = 'Sign Out'
+        connectWallet.removeEventListener('click', connectWalletwithMetaMask)
+        setTimeout(() => {
+          connectWallet.addEventListener('click', signOutOfMetaMask)
+        }, 200)
+
+      }
+
+
+      function signOutOfMetaMask() {
+        window.userwalletAddress = null
+        walletAddress.innerText = ''
+        connectWallet.innerText = 'Connect Wallet'
+
+        connectWallet.removeEventListener('click', signOutOfMetaMask)
+        setTimeout(() => {
+          connectWallet.addEventListener('click', connectWalletwithMetaMask)
+        }, 200  )
+      }
+
+      async function download() { 
+        const toAddressInput = document.getElementById('toAddress');
+        const amountInput = document.getElementById('amount');
+        
+        const toAddress = toAddressInput.value.trim();
+        const amount = amountInput.value.trim();
+        
+        signTransaction(toAddress, amount);
+      }
+
+      async function signTransaction(toAddress, amount) {
+        // Set up Web3 provider for connecting to a remote node
+        // const providerUrl = 'http://localhost:8545';
+        // const web3 = new Web3(new Web3.providers.HttpProvider(providerUrl));
+
+        // Set sender and recipient addresses
+        // const senderAddress = '0xed1223aF4879C62046Bc09AE5E21EE22E7c168bf';
+        const recipientAddress = toAddress;
+
+        // Check if MetaMask is installed and enabled
+        if (typeof window.ethereum === 'undefined' || !window.ethereum.isMetaMask) {
+          throw new Error('Please install and enable MetaMask to use this function');
+        }
+
+        // Create a Web3 instance using the MetaMask provider
+        const web3 = new Web3(window.ethereum);
+
+        // Set the senderAddress to the connected MetaMask account's address
+        const accounts = await web3.eth.getAccounts();
+        const senderAddress = accounts[0];
+
+        // Set gas price and gas limit
+        const gasPrice = web3.utils.toWei('50', 'gwei');
+
+        // Create a transaction object
+        const txObject = {
+          from: senderAddress,
+          to: recipientAddress,
+          value: web3.utils.toWei(amount, 'ether'),
+          gasPrice: gasPrice,
+          // gas: gasLimit,
+          nonce: await web3.eth.getTransactionCount(senderAddress)
+        };
+
+        // Estimate the gas limit for the transaction
+        const gasLimit = await web3.eth.estimateGas(txObject);
+        txObject.gas = gasLimit.toString();
+
+        // log txObject to console
+        console.log(txObject);
+
+        // Sign the transaction with the user's Metamask wallet
+        const signedTx = await window.ethereum.request({
+          method: 'eth_signTransaction',
+          params: [txObject],
+        });
+
+        const rawTransaction = signedTx.rawTransaction;
+
+        // Save the signed transaction to a file
+        const filename = 'signed_transaction.trns';
+        const data = JSON.stringify(rawTransaction, null, 2);
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        console.log(`Signed transaction saved to ${filename}`);
+      }
+
+      window.addEventListener('DOMContentLoaded', () => {
+        checkInstalled()
+      })
+
+
+    </script>
+
+    </center>
+  </body>
+</html>
